@@ -26,6 +26,7 @@
 #include <U8g2lib.h>
 #include <U8x8lib.h>
 #include <Wire.h>
+#include <stdio.h>
 
 /* Constant defines -------------------------------------------------------- */
 #define CONVERT_G_TO_MS2 9.80665f
@@ -64,6 +65,20 @@ const int RED_ledPin   = 11;
 const int BLUE_ledPin  = 12;
 const int GREEN_ledPin = 13;
 
+enum RgbColor
+{
+    OFF,
+    RED,
+    GREEN,
+    BLUE,
+    YELLOW,
+    PURPLE,
+    WHITE
+};
+
+void printResultToDisp(ei_impulse_result_classification_t &classResult, uint8_t color);
+void printResultToDisp(const char *label, float value, uint8_t color);
+
 void setup()
 {
     // put your setup code here, to run once:
@@ -88,6 +103,9 @@ void setup()
         ei_printf("ERR: EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME should be equal to 3 (the 3 sensor axes)\n");
         return;
     }
+
+    ei_printf("\nStarting inferencing in 2 seconds...\n");
+    delay(2000);
 }
 
 /**
@@ -108,25 +126,26 @@ float ei_get_sign(float number)
  */
 void loop()
 {
-    uint8_t buf1[64] = "idle";
-    uint8_t buf2[64] = "left&right";
-    uint8_t buf3[64] = "up&down";
-    uint8_t buf4[64] = "circle";
-
     digitalWrite(RED_ledPin, HIGH);
     digitalWrite(BLUE_ledPin, HIGH);
     digitalWrite(GREEN_ledPin, HIGH);
 
     u8x8.clear();
-    u8x8.setFont(u8g2_font_ncenB08_tr);
-
-    ei_printf("\nStarting inferencing in 2 seconds...\n");
-
-    // delay(2000);
-    u8x8.drawString(2, 3, "Sampling...");
-    u8x8.refreshDisplay();
+    u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
 
     ei_printf("Sampling...\n");
+
+    u8x8.drawString(2, 3, "Sampling... 3");
+    u8x8.refreshDisplay();
+    delay(1000);
+    u8x8.drawString(2, 3, "Sampling... 2");
+    u8x8.refreshDisplay();
+    delay(1000);
+    u8x8.drawString(2, 3, "Sampling... 1");
+    u8x8.refreshDisplay();
+    delay(1000);
+    u8x8.drawString(2, 3, "Sampling...");
+    u8x8.refreshDisplay();
 
     // Allocate a buffer here for the values we'll read from the IMU
     float buffer[EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE] = {0};
@@ -191,64 +210,106 @@ void loop()
     ei_printf("    anomaly score: %.3f\n", result.anomaly);
 #endif
 
+    u8x8.clear();
+    // circle
     if (result.classification[0].value > 0.5)
     {
-        // blue
-        digitalWrite(RED_ledPin, HIGH);
-        digitalWrite(BLUE_ledPin, LOW);
-        digitalWrite(GREEN_ledPin, HIGH);
-        u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
-        u8x8.drawString(2, 3, "circle");
-        u8x8.refreshDisplay();
+        printResultToDisp(result.classification[0], BLUE);
         delay(2000);
+    }
+    // idle
+    else if (result.classification[1].value > 0.5)
+    {
+        printResultToDisp(result.classification[1], RED);
+        delay(2000);
+    }
+    // pullback
+    else if (result.classification[2].value > 0.5)
+    {
+        printResultToDisp(result.classification[2], GREEN);
+        delay(2000);
+    }
+    // updown
+    else if (result.classification[3].value > 0.5)
+    {
+        printResultToDisp(result.classification[3], YELLOW);
+        delay(2000);
+    }
+    // wave
+    else if (result.classification[4].value > 0.5)
+    {
+        printResultToDisp(result.classification[4], PURPLE);
+        delay(2000);
+    }
+    else if (result.anomaly > 0.5)
+    {
+        printResultToDisp("anomaly", result.anomaly, WHITE);
+        delay(2000);
+    }
+    else
+    {
+        printResultToDisp("uncertain", 0.0, OFF);
+        delay(2000);
+    }
+}
+
+void printResultToDisp(ei_impulse_result_classification_t &classResult, uint8_t color)
+{
+    printResultToDisp(classResult.label, classResult.value, color);
+}
+
+void printResultToDisp(const char *label, float value, uint8_t color)
+{
+    switch (color)
+    {
+        case OFF:
+            digitalWrite(RED_ledPin, HIGH);
+            digitalWrite(GREEN_ledPin, HIGH);
+            digitalWrite(BLUE_ledPin, HIGH);
+            break;
+        case RED:
+            digitalWrite(RED_ledPin, LOW);
+            digitalWrite(GREEN_ledPin, HIGH);
+            digitalWrite(BLUE_ledPin, HIGH);
+            break;
+        case GREEN:
+            digitalWrite(RED_ledPin, HIGH);
+            digitalWrite(GREEN_ledPin, LOW);
+            digitalWrite(BLUE_ledPin, HIGH);
+            break;
+
+        case BLUE:
+            digitalWrite(RED_ledPin, HIGH);
+            digitalWrite(GREEN_ledPin, HIGH);
+            digitalWrite(BLUE_ledPin, LOW);
+            break;
+
+        case YELLOW:
+            digitalWrite(RED_ledPin, LOW);
+            digitalWrite(GREEN_ledPin, LOW);
+            digitalWrite(BLUE_ledPin, HIGH);
+            break;
+
+        case PURPLE:
+            digitalWrite(RED_ledPin, LOW);
+            digitalWrite(GREEN_ledPin, HIGH);
+            digitalWrite(BLUE_ledPin, LOW);
+            break;
+        case WHITE:
+            digitalWrite(RED_ledPin, LOW);
+            digitalWrite(GREEN_ledPin, LOW);
+            digitalWrite(BLUE_ledPin, LOW);
+            break;
+        default:
+            break;
     }
 
-    if (result.classification[1].value > 0.5)
-    {
-        // red
-        digitalWrite(RED_ledPin, LOW);
-        digitalWrite(BLUE_ledPin, HIGH);
-        digitalWrite(GREEN_ledPin, HIGH);
-        u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
-        u8x8.drawString(2, 3, "idle");
-        u8x8.refreshDisplay();
-        delay(2000);
-    }
+    char numBuf[20] = {0};
+    snprintf(numBuf, 20, "%.2f%", value * 100.0);
 
-    if (result.classification[2].value > 0.5)
-    {
-        // green
-        digitalWrite(RED_ledPin, HIGH);
-        digitalWrite(BLUE_ledPin, HIGH);
-        digitalWrite(GREEN_ledPin, LOW);
-        u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
-        u8x8.drawString(2, 3, "up");
-        u8x8.drawString(2, 4, "down");
-        u8x8.refreshDisplay();
-        delay(2000);
-    }
+    u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
+    u8x8.drawString(2, 3, label);
+    u8x8.drawString(2, 5, numBuf);
 
-    if (result.classification[3].value > 0.5)
-    {
-        // yellow
-        digitalWrite(RED_ledPin, LOW);
-        digitalWrite(BLUE_ledPin, HIGH);
-        digitalWrite(GREEN_ledPin, LOW);
-        u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
-        u8x8.drawString(2, 3, "wave");
-        u8x8.refreshDisplay();
-        delay(2000);
-    }
-
-    if (result.anomaly > 0.5)
-    {
-        // violet
-        digitalWrite(RED_ledPin, LOW);
-        digitalWrite(BLUE_ledPin, LOW);
-        digitalWrite(GREEN_ledPin, LOW);
-        u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
-        u8x8.drawString(2, 3, "anomaly");
-        u8x8.refreshDisplay();
-        delay(2000);
-    }
+    u8x8.refreshDisplay();
 }
