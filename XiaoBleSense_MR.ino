@@ -65,6 +65,8 @@ const int RED_ledPin   = 11;
 const int BLUE_ledPin  = 12;
 const int GREEN_ledPin = 13;
 
+const uint32_t displayResultTimeMs = 2000;
+
 enum RgbColor
 {
     OFF,
@@ -215,42 +217,36 @@ void loop()
     if (result.classification[0].value > 0.5)
     {
         printResultToDisp(result.classification[0], BLUE);
-        delay(2000);
     }
     // idle
     else if (result.classification[1].value > 0.5)
     {
         printResultToDisp(result.classification[1], RED);
-        delay(2000);
     }
     // pullback
     else if (result.classification[2].value > 0.5)
     {
         printResultToDisp(result.classification[2], GREEN);
-        delay(2000);
     }
     // updown
     else if (result.classification[3].value > 0.5)
     {
         printResultToDisp(result.classification[3], YELLOW);
-        delay(2000);
     }
     // wave
     else if (result.classification[4].value > 0.5)
     {
         printResultToDisp(result.classification[4], PURPLE);
-        delay(2000);
     }
     else if (result.anomaly > 0.5)
     {
         printResultToDisp("anomaly", result.anomaly, WHITE);
-        delay(2000);
     }
     else
     {
         printResultToDisp("uncertain", 0.0, OFF);
-        delay(2000);
     }
+    delay(displayResultTimeMs);
 }
 
 void printResultToDisp(ei_impulse_result_classification_t &classResult, uint8_t color)
